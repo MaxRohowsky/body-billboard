@@ -433,7 +433,7 @@ export function BodyMarket() {
                         placeholder="Email, @X handle, or contact link"
                         required
                       />
-                      <span className="mt-2 block text-sm text-foreground/60">Sponsors see this after signing in and pressing Buy Body.</span>
+                      <span className="mt-2 block text-sm text-foreground/60">Sponsors see this after signing in and pressing Sponsor.</span>
                     </label>
                     <p className="text-sm text-foreground/60">Keep it clothed, consensual, and legal.</p>
                   </div>
@@ -525,7 +525,7 @@ export function BodyMarket() {
                     className="h-12 rounded-none border-2 border-foreground px-6 font-black sm:min-w-40"
                   >
                     {contactingId === listing.id ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
-                    Buy Body
+                    Sponsor
                   </Button>
                   {user?.isAdmin ? (
                     <AlertDialog>
