@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, ExternalLink, ImagePlus, LoaderCircle, LogIn, LogOut, Sparkles, Tag, Trash2 } from "lucide-react";
+import { ArrowDown, ExternalLink, ImagePlus, LoaderCircle, LogIn, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import type { SessionUser } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -364,7 +364,7 @@ export function BodyMarket() {
               The human billboard market
             </div>
             <h1 className="max-w-3xl text-5xl font-black leading-[0.92] tracking-[-0.065em] sm:text-7xl lg:text-8xl">
-              Sell the<br />Ad-space!
+              Have a body?<br />Sell the Ad-space!
             </h1>
           </div>
           <div className="lg:pb-2">
@@ -372,7 +372,7 @@ export function BodyMarket() {
               List your body. Sponsors contact you. You wear their stuff.
             </p>
             <Button onClick={startListing} className="h-14 w-full rounded-none border-2 border-foreground bg-primary px-6 text-base font-black text-primary-foreground shadow-[5px_5px_0_var(--accent)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_var(--accent)] sm:w-auto">
-              Sell my body <Tag aria-hidden="true" />
+              + New Entry
             </Button>
             <Dialog open={sellOpen} onOpenChange={setSellOpen}>
               <DialogContent className="rounded-none border-2 border-foreground p-0 shadow-[8px_8px_0_var(--accent)] sm:max-w-xl">
@@ -450,6 +450,26 @@ export function BodyMarket() {
               </DialogContent>
             </Dialog>
           </div>
+        </div>
+      </section>
+
+      <section className="border-b-2 border-foreground bg-secondary">
+        <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-12">
+          <h2 className="mb-6 text-2xl font-black tracking-[-0.04em] sm:text-3xl">How it works</h2>
+          <ol className="grid border-2 border-foreground bg-background sm:grid-cols-3">
+            <li className="border-b-2 border-foreground p-5 sm:border-b-0 sm:border-r-2">
+              <span className="mb-3 block text-3xl font-black text-primary">1.</span>
+              <p className="text-base font-bold leading-relaxed">Submit a pic of you and contact details</p>
+            </li>
+            <li className="border-b-2 border-foreground p-5 sm:border-b-0 sm:border-r-2">
+              <span className="mb-3 block text-3xl font-black text-primary">2.</span>
+              <p className="text-base font-bold leading-relaxed">Write Pitch why you should be sponsored</p>
+            </li>
+            <li className="p-5">
+              <span className="mb-3 block text-3xl font-black text-primary">3.</span>
+              <p className="text-base font-bold leading-relaxed">Advertisers reach out to you</p>
+            </li>
+          </ol>
         </div>
       </section>
 
