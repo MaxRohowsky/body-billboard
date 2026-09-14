@@ -346,7 +346,7 @@ export function BodyMarket() {
           </div>
           <div className="lg:pb-2">
             <p className="mb-6 max-w-md text-lg leading-relaxed">
-              List yourself. A sponsor claims you. You wear their sticker. Capitalism, but sillier.
+              List your body. Sponsors claim space. You wear their stuff.
             </p>
             <Button onClick={startListing} className="h-14 w-full rounded-none border-2 border-foreground bg-primary px-6 text-base font-black text-primary-foreground shadow-[5px_5px_0_var(--accent)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_var(--accent)] sm:w-auto">
               Sell my body <Tag aria-hidden="true" />
