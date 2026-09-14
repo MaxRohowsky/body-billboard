@@ -357,8 +357,8 @@ export function BodyMarket() {
       </Dialog>
 
       <section id="top" className="border-b-2 border-foreground">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1fr_0.7fr] lg:items-end">
-          <div>
+        <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+          <div className="max-w-5xl">
             <div className="mb-6 inline-flex rotate-[-2deg] items-center gap-2 border-2 border-foreground bg-accent px-3 py-1 text-sm font-black uppercase tracking-wide shadow-[3px_3px_0_#141414]">
               <Sparkles aria-hidden="true" className="size-4" />
               The human billboard market
@@ -366,9 +366,7 @@ export function BodyMarket() {
             <h1 className="max-w-3xl text-5xl font-black leading-[0.92] tracking-[-0.065em] sm:text-7xl lg:text-8xl">
               Have a body?<br />Sell the Ad-space!
             </h1>
-          </div>
-          <div className="lg:pb-2">
-            <p className="mb-6 max-w-md text-lg leading-relaxed">
+            <p className="mb-6 mt-7 max-w-2xl text-xl leading-relaxed sm:text-2xl">
               List your body. Sponsors contact you. You wear their stuff.
             </p>
             <Button onClick={startListing} className="h-14 w-full rounded-none border-2 border-foreground bg-primary px-6 text-base font-black text-primary-foreground shadow-[5px_5px_0_var(--accent)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_var(--accent)] sm:w-auto">
@@ -477,7 +475,7 @@ export function BodyMarket() {
         <div className="mb-8 flex items-end justify-between gap-5 border-b-2 border-foreground pb-4">
           <div>
             <p className="mb-1 text-sm font-black uppercase tracking-[0.14em]">For sponsors</p>
-            <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">Bodies on the market</h2>
+            <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">On the market</h2>
           </div>
           <ArrowDown aria-hidden="true" className="hidden size-7 sm:block" />
         </div>
