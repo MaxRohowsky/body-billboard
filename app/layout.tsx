@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Body Billboard — The human billboard market",
-  description: "List your body, get claimed by a sponsor, and wear their sticker.",
+  description: "List your body ad space, share your contact, and find a sponsor.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

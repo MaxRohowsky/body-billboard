@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, Check, ImagePlus, LoaderCircle, LogIn, LogOut, Sparkles, Tag, Trash2 } from "lucide-react";
+import { ArrowDown, ExternalLink, ImagePlus, LoaderCircle, LogIn, LogOut, Sparkles, Tag, Trash2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import type { SessionUser } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -33,8 +33,12 @@ type Listing = {
   id: number;
   description: string;
   imageUrl: string;
-  claimed: number;
   createdAt: string;
+};
+
+type SellerContact = {
+  listingId: number;
+  contact: string;
 };
 
 type WebMcpTool = {
@@ -57,6 +61,26 @@ declare global {
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+function contactHref(contact: string) {
+  const value = contact.trim();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `mailto:${value}`;
+  if (/^@[A-Za-z0-9_]{1,15}$/.test(value)) return `https://x.com/${value.slice(1)}`;
+
+  const candidate = /^https?:\/\//i.test(value)
+    ? value
+    : /^[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?:[/:?#].*)?$/i.test(value)
+      ? `https://${value}`
+      : "";
+  if (!candidate) return null;
+
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function BodyMarket() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,9 +90,11 @@ export function BodyMarket() {
   const [authOpen, setAuthOpen] = useState(false);
   const [sellOpen, setSellOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [contactingId, setContactingId] = useState<number | null>(null);
+  const [sellerContact, setSellerContact] = useState<SellerContact | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [description, setDescription] = useState("");
+  const [contact, setContact] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
@@ -130,6 +156,26 @@ export function BodyMarket() {
     toast.success("Signed out.");
   }
 
+  const contactSeller = useCallback(async (id: number) => {
+    setContactingId(id);
+    try {
+      const response = await fetch(`/api/listings/${id}/contact`, { method: "POST" });
+      const payload = (await response.json()) as { contact?: string; error?: string };
+      if (response.status === 401) {
+        setUser(null);
+        setAuthOpen(true);
+      }
+      if (!response.ok || !payload.contact) throw new Error(payload.error || "Could not load this seller's contact.");
+      setSellerContact({ listingId: id, contact: payload.contact });
+      return payload.contact;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load this seller's contact.");
+      throw error;
+    } finally {
+      setContactingId(null);
+    }
+  }, []);
+
   useEffect(() => {
     const context = document.modelContext;
     if (!context?.registerTool) return;
@@ -147,11 +193,11 @@ export function BodyMarket() {
     register({
       name: "browse_bodies",
       title: "Browse bodies",
-      description: "Return the bodies currently listed for sponsor stickers and whether each is available.",
+      description: "Return the bodies currently listed for sponsor ad space.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute() {
-        return listingsRef.current.map(({ id, description, claimed }) => ({ id, description, available: !claimed }));
+        return listingsRef.current.map(({ id, description }) => ({ id, description }));
       },
     });
 
@@ -172,35 +218,30 @@ export function BodyMarket() {
     });
 
     register({
-      name: "claim_body",
-      title: "Claim body",
-      description: "Claim one available body for a free sponsor sticker placement.",
+      name: "contact_body_seller",
+      title: "Contact body seller",
+      description: "Show the contact supplied by the person selling this body ad space.",
       inputSchema: {
         type: "object",
         properties: { id: { type: "integer", minimum: 1 } },
         required: ["id"],
         additionalProperties: false,
       },
-      annotations: { readOnlyHint: false, untrustedContentHint: false },
+      annotations: { readOnlyHint: true, untrustedContentHint: true },
       async execute(input) {
         const id = typeof input === "object" && input !== null && "id" in input ? Number(input.id) : NaN;
         if (!Number.isSafeInteger(id) || id < 1) throw new Error("A valid body id is required.");
         if (!userRef.current) {
           setAuthOpen(true);
-          throw new Error("Sign in with Google to claim a body.");
+          throw new Error("Sign in with Google to contact the seller.");
         }
-
-        const response = await fetch(`/api/listings/${id}/claim`, { method: "POST" });
-        const payload = (await response.json()) as { error?: string };
-        if (!response.ok) throw new Error(payload.error || "Could not claim this body.");
-        setListings((current) => current.map((listing) => (listing.id === id ? { ...listing, claimed: 1 } : listing)));
-        toast.success("Body claimed. Sticker responsibly.");
-        return { id, claimed: true };
+        const seller = await contactSeller(id);
+        return { id, contact: seller };
       },
     });
 
     return () => lifecycle.abort();
-  }, []);
+  }, [contactSeller]);
 
   useEffect(() => {
     return () => {
@@ -228,12 +269,13 @@ export function BodyMarket() {
 
   async function submitListing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!photo || !description.trim()) return;
+    if (!photo || !description.trim() || !contact.trim()) return;
 
     setSubmitting(true);
     const body = new FormData();
     body.set("photo", photo);
     body.set("description", description.trim());
+    body.set("contact", contact.trim());
 
     try {
       const response = await fetch("/api/listings", { method: "POST", body });
@@ -248,6 +290,7 @@ export function BodyMarket() {
       setListings((current) => [payload.listing!, ...current]);
       setSellOpen(false);
       setDescription("");
+      setContact("");
       setPhoto(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl("");
@@ -257,28 +300,6 @@ export function BodyMarket() {
       toast.error(error instanceof Error ? error.message : "Could not list your body.");
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function claimBody(id: number) {
-    setClaimingId(id);
-    try {
-      const response = await fetch(`/api/listings/${id}/claim`, { method: "POST" });
-      const payload = (await response.json()) as { error?: string };
-      if (response.status === 401) {
-        setUser(null);
-        setAuthOpen(true);
-      }
-      if (!response.ok) throw new Error(payload.error || "Could not claim this body.");
-      setListings((current) =>
-        current.map((listing) => (listing.id === id ? { ...listing, claimed: 1 } : listing)),
-      );
-      toast.success("Body claimed. Sticker responsibly.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not claim this body.");
-      void loadListings();
-    } finally {
-      setClaimingId(null);
     }
   }
 
@@ -296,6 +317,8 @@ export function BodyMarket() {
       setDeletingId(null);
     }
   }
+
+  const sellerContactHref = sellerContact ? contactHref(sellerContact.contact) : null;
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -326,7 +349,7 @@ export function BodyMarket() {
           <DialogHeader>
             <DialogTitle className="text-3xl font-black tracking-[-0.04em]">Sign in first</DialogTitle>
             <DialogDescription className="text-base text-foreground/70">
-              A Google account is required to list or claim a body.
+              A Google account is required to list a body or contact a seller.
             </DialogDescription>
           </DialogHeader>
           <div className="pt-2"><GoogleSignIn onSignedIn={handleSignedIn} /></div>
@@ -341,12 +364,12 @@ export function BodyMarket() {
               The human billboard market
             </div>
             <h1 className="max-w-3xl text-5xl font-black leading-[0.92] tracking-[-0.065em] sm:text-7xl lg:text-8xl">
-              Got a body?<br />Sell the space.
+              Sell the<br />Ad-space!
             </h1>
           </div>
           <div className="lg:pb-2">
             <p className="mb-6 max-w-md text-lg leading-relaxed">
-              List your body. Sponsors claim space. You wear their stuff.
+              List your body. Sponsors contact you. You wear their stuff.
             </p>
             <Button onClick={startListing} className="h-14 w-full rounded-none border-2 border-foreground bg-primary px-6 text-base font-black text-primary-foreground shadow-[5px_5px_0_var(--accent)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_var(--accent)] sm:w-auto">
               Sell my body <Tag aria-hidden="true" />
@@ -356,7 +379,7 @@ export function BodyMarket() {
                 <form ref={formRef} onSubmit={submitListing}>
                   <DialogHeader className="border-b-2 border-foreground p-6">
                     <DialogTitle className="text-3xl font-black tracking-[-0.04em]">List your body</DialogTitle>
-                    <DialogDescription className="text-base text-foreground/70">One clothed photo, one short pitch. That’s it.</DialogDescription>
+                    <DialogDescription className="text-base text-foreground/70">One clothed photo, one short pitch, and your preferred contact.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-5 p-6">
                     <label className="block">
@@ -398,11 +421,27 @@ export function BodyMarket() {
                         required
                       />
                     </label>
+                    <label className="block">
+                      <span className="mb-2 flex items-center justify-between gap-4 text-sm font-black uppercase tracking-wide">
+                        Contact
+                        <span className="font-normal normal-case tracking-normal text-foreground/50">{contact.length}/200</span>
+                      </span>
+                      <Input
+                        className="h-12 rounded-none border-2 border-foreground text-base shadow-none"
+                        name="contact"
+                        value={contact}
+                        onChange={(event) => setContact(event.target.value)}
+                        maxLength={200}
+                        placeholder="Email, @X handle, or contact link"
+                        required
+                      />
+                      <span className="mt-2 block text-sm text-foreground/60">Sponsors see this after signing in and pressing Buy Body.</span>
+                    </label>
                     <p className="text-sm text-foreground/60">Keep it clothed, consensual, and legal.</p>
                   </div>
                   <DialogFooter className="border-t-2 border-foreground p-4 sm:items-center">
                     <DialogClose asChild><Button type="button" variant="ghost" className="rounded-none font-bold">Cancel</Button></DialogClose>
-                    <Button type="submit" disabled={submitting || !photo || !description.trim()} className="h-11 rounded-none border-2 border-foreground px-6 font-black">
+                    <Button type="submit" disabled={submitting || !photo || !description.trim() || !contact.trim()} className="h-11 rounded-none border-2 border-foreground px-6 font-black">
                       {submitting ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
                       List my body
                     </Button>
@@ -450,25 +489,25 @@ export function BodyMarket() {
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <span className="font-black">Body #{listing.id}</span>
-                    <span className="border border-foreground px-2 py-0.5 text-xs font-black uppercase tracking-wide">{listing.claimed ? "Claimed" : "Available"}</span>
+                    <span className="border border-foreground px-2 py-0.5 text-xs font-black uppercase tracking-wide">Open for sponsors</span>
                   </div>
                   <p className="max-w-2xl text-base leading-relaxed text-foreground/75">{listing.description}</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:items-stretch">
                   <Button
                     type="button"
-                    disabled={Boolean(listing.claimed) || claimingId === listing.id}
+                    disabled={contactingId === listing.id}
                     onClick={() => {
                       if (!userRef.current) {
                         setAuthOpen(true);
                         return;
                       }
-                      void claimBody(listing.id);
+                      void contactSeller(listing.id).catch(() => undefined);
                     }}
                     className="h-12 rounded-none border-2 border-foreground px-6 font-black sm:min-w-40"
                   >
-                    {claimingId === listing.id ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : listing.claimed ? <Check aria-hidden="true" /> : null}
-                    {listing.claimed ? "Already claimed" : "Buy body — free"}
+                    {contactingId === listing.id ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
+                    Buy Body
                   </Button>
                   {user?.isAdmin ? (
                     <AlertDialog>
@@ -508,6 +547,34 @@ export function BodyMarket() {
           </div>
         )}
       </section>
+
+      <Dialog open={Boolean(sellerContact)} onOpenChange={(open) => { if (!open) setSellerContact(null); }}>
+        <DialogContent className="rounded-none border-2 border-foreground shadow-[8px_8px_0_var(--accent)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-3xl font-black tracking-[-0.04em]">Contact Body #{sellerContact?.listingId}</DialogTitle>
+            <DialogDescription className="text-base text-foreground/70">
+              Work out the ad details directly with the seller.
+            </DialogDescription>
+          </DialogHeader>
+          {sellerContact ? (
+            <div className="border-2 border-foreground bg-secondary p-4 text-base font-bold break-words">
+              {sellerContactHref ? (
+                <a
+                  href={sellerContactHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 underline decoration-2 underline-offset-4"
+                >
+                  {sellerContact.contact} <ExternalLink aria-hidden="true" className="size-4 shrink-0" />
+                </a>
+              ) : sellerContact.contact}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <DialogClose asChild><Button type="button" className="rounded-none border-2 border-foreground font-black">Done</Button></DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <footer className="border-t-2 border-foreground">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-5 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8">

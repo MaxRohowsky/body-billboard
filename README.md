@@ -1,6 +1,6 @@
 # Body Billboard
 
-A tiny marketplace where people list sticker space on themselves and sponsors claim it for free.
+A tiny marketplace where people list sticker space on themselves and sponsors contact them directly.
 
 ## Local development
 
