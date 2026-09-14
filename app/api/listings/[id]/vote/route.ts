@@ -8,7 +8,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
   const listingId = Number(id);
   if (!Number.isSafeInteger(listingId) || listingId < 1) {
-    return Response.json({ error: "That body does not exist." }, { status: 400 });
+    return Response.json({ error: "That project does not exist." }, { status: 400 });
   }
 
   const voterSub = encodeURIComponent(user.sub);
@@ -17,7 +17,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const listing = await supabaseJson<Array<{ id: number }>>(
       `/rest/v1/listings?id=eq.${listingId}&select=id&limit=1`,
     );
-    if (!listing.length) return Response.json({ error: "That body does not exist." }, { status: 404 });
+    if (!listing.length) return Response.json({ error: "That project does not exist." }, { status: 404 });
 
     const existing = await supabaseJson<Array<{ listing_id: number }>>(
       `/rest/v1/listing_votes?listing_id=eq.${listingId}&voter_sub=eq.${voterSub}&select=listing_id&limit=1`,

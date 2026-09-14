@@ -114,11 +114,11 @@ export function BodyMarket() {
     try {
       const response = await fetch("/api/listings", { cache: "no-store" });
       const payload = (await response.json()) as { listings?: Listing[]; error?: string };
-      if (!response.ok) throw new Error(payload.error || "Could not load bodies.");
+      if (!response.ok) throw new Error(payload.error || "Could not load projects.");
       setListings(payload.listings ?? []);
       setLoadError("");
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Could not load bodies.");
+      setLoadError(error instanceof Error ? error.message : "Could not load projects.");
     } finally {
       setLoading(false);
     }
@@ -233,8 +233,8 @@ export function BodyMarket() {
 
     register({
       name: "browse_bodies",
-      title: "Browse bodies",
-      description: "Return the bodies currently listed for sponsor ad space.",
+      title: "Browse projects",
+      description: "Return the projects currently looking for sponsors.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute() {
@@ -244,8 +244,8 @@ export function BodyMarket() {
 
     register({
       name: "start_body_listing",
-      title: "Start body listing",
-      description: "Open the listing form so the visitor can choose a photo and describe their event.",
+      title: "Submit a project",
+      description: "Open the submission form so the visitor can show their ad space and pitch their project.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute() {
@@ -260,8 +260,8 @@ export function BodyMarket() {
 
     register({
       name: "contact_body_seller",
-      title: "Contact body seller",
-      description: "Show the contact supplied by the person selling this body ad space.",
+      title: "Contact project owner",
+      description: "Show the contact supplied by the person looking for a sponsor.",
       inputSchema: {
         type: "object",
         properties: { id: { type: "integer", minimum: 1 } },
@@ -271,7 +271,7 @@ export function BodyMarket() {
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       async execute(input) {
         const id = typeof input === "object" && input !== null && "id" in input ? Number(input.id) : NaN;
-        if (!Number.isSafeInteger(id) || id < 1) throw new Error("A valid body id is required.");
+        if (!Number.isSafeInteger(id) || id < 1) throw new Error("A valid project id is required.");
         if (!userRef.current) {
           setAuthOpen(true);
           throw new Error("Sign in with Google to contact the seller.");
@@ -326,7 +326,7 @@ export function BodyMarket() {
         setSellOpen(false);
         setAuthOpen(true);
       }
-      if (!response.ok || !payload.listing) throw new Error(payload.error || "Could not list your body.");
+      if (!response.ok || !payload.listing) throw new Error(payload.error || "Could not submit your project.");
 
       setListings((current) => [payload.listing!, ...current]);
       setSellOpen(false);
@@ -336,9 +336,9 @@ export function BodyMarket() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl("");
       formRef.current?.reset();
-      toast.success("Your body is on the market.");
+      toast.success("Your project is on the market.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not list your body.");
+      toast.error(error instanceof Error ? error.message : "Could not submit your project.");
     } finally {
       setSubmitting(false);
     }
@@ -368,7 +368,7 @@ export function BodyMarket() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
           <a href="#top" className="text-lg font-black tracking-[-0.04em]">body-billboard.com</a>
           <div className="flex items-center gap-4">
-            <a href="#bodies" className="hidden text-sm font-bold underline decoration-2 underline-offset-4 sm:inline">Browse bodies</a>
+            <a href="#bodies" className="hidden text-sm font-bold underline decoration-2 underline-offset-4 sm:inline">Browse projects</a>
             {authLoading ? (
               <span className="h-9 w-24 animate-pulse bg-secondary" aria-label="Checking sign-in" />
             ) : user ? (
@@ -390,7 +390,7 @@ export function BodyMarket() {
           <DialogHeader>
             <DialogTitle className="text-3xl font-black tracking-[-0.04em]">Sign in first</DialogTitle>
             <DialogDescription className="text-base text-foreground/70">
-              A Google account is required to list, sponsor, or upvote a body.
+              A Google account is required to submit, sponsor, or upvote a project.
             </DialogDescription>
           </DialogHeader>
           <div className="pt-2"><GoogleSignIn onSignedIn={handleSignedIn} /></div>
@@ -405,10 +405,10 @@ export function BodyMarket() {
               The human billboard market
             </div>
             <h1 className="max-w-3xl text-5xl font-black leading-[0.92] tracking-[-0.065em] sm:text-7xl lg:text-8xl">
-              Have a body?<br />Sell the Ad-space!
+              Sell yourself<br />as adspace.
             </h1>
             <p className="mb-6 mt-7 max-w-2xl text-xl leading-relaxed sm:text-2xl">
-              List your body. Sponsors contact you. You wear their stuff.
+              Pitch your project. Sponsors contact you directly.
             </p>
             <Button onClick={startListing} className="h-14 w-full rounded-none border-2 border-foreground bg-primary px-6 text-base font-black text-primary-foreground shadow-[5px_5px_0_var(--accent)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_var(--accent)] sm:w-auto">
               + New Entry
@@ -417,16 +417,16 @@ export function BodyMarket() {
               <DialogContent className="rounded-none border-2 border-foreground p-0 shadow-[8px_8px_0_var(--accent)] sm:max-w-xl">
                 <form ref={formRef} onSubmit={submitListing}>
                   <DialogHeader className="border-b-2 border-foreground p-6">
-                    <DialogTitle className="text-3xl font-black tracking-[-0.04em]">List your body</DialogTitle>
-                    <DialogDescription className="text-base text-foreground/70">One clothed photo, one short pitch, and your preferred contact.</DialogDescription>
+                    <DialogTitle className="text-3xl font-black tracking-[-0.04em]">Submit your project</DialogTitle>
+                    <DialogDescription className="text-base text-foreground/70">One photo showing the ad space, a short project pitch, and your preferred contact.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-5 p-6">
                     <label className="block">
-                      <span className="mb-2 block text-sm font-black uppercase tracking-wide">Body photo</span>
+                      <span className="mb-2 block text-sm font-black uppercase tracking-wide">Show the ad space</span>
                       <span className="relative flex min-h-44 cursor-pointer items-center justify-center overflow-hidden border-2 border-dashed border-foreground bg-secondary text-center focus-within:outline focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-ring">
                         {previewUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={previewUrl} alt="Your selected body" className="absolute inset-0 size-full object-cover" />
+                          <img src={previewUrl} alt="Your selected ad space" className="absolute inset-0 size-full object-cover" />
                         ) : (
                           <span className="flex flex-col items-center gap-2 p-6 font-bold">
                             <ImagePlus aria-hidden="true" className="size-7" />
@@ -441,13 +441,13 @@ export function BodyMarket() {
                           accept="image/jpeg,image/png,image/webp"
                           onChange={handlePhoto}
                           required
-                          aria-label="Choose a body photo"
+                          aria-label="Choose a photo showing the ad space"
                         />
                       </span>
                     </label>
                     <label className="block">
                       <span className="mb-2 flex items-center justify-between gap-4 text-sm font-black uppercase tracking-wide">
-                        The pitch
+                        Why should you be sponsored?
                         <span className="font-normal normal-case tracking-normal text-foreground/50">{description.length}/240</span>
                       </span>
                       <Textarea
@@ -476,13 +476,13 @@ export function BodyMarket() {
                       />
                       <span className="mt-2 block text-sm text-foreground/60">Sponsors see this after signing in and pressing Sponsor.</span>
                     </label>
-                    <p className="text-sm text-foreground/60">Keep it clothed, consensual, and legal.</p>
+                    <p className="text-sm font-bold text-foreground/70">Serious submissions only.</p>
                   </div>
                   <DialogFooter className="border-t-2 border-foreground p-4 sm:items-center">
                     <DialogClose asChild><Button type="button" variant="ghost" className="rounded-none font-bold">Cancel</Button></DialogClose>
                     <Button type="submit" disabled={submitting || !photo || !description.trim() || !contact.trim()} className="h-11 rounded-none border-2 border-foreground px-6 font-black">
                       {submitting ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
-                      List my body
+                      Submit project
                     </Button>
                   </DialogFooter>
                 </form>
@@ -498,11 +498,11 @@ export function BodyMarket() {
           <ol className="grid border-2 border-foreground bg-background sm:grid-cols-3">
             <li className="border-b-2 border-foreground p-5 sm:border-b-0 sm:border-r-2">
               <span className="mb-3 block text-3xl font-black text-primary">1.</span>
-              <p className="text-base font-bold leading-relaxed">Submit a pic of you and contact details</p>
+              <p className="text-base font-bold leading-relaxed">Show the ad space and add contact details</p>
             </li>
             <li className="border-b-2 border-foreground p-5 sm:border-b-0 sm:border-r-2">
               <span className="mb-3 block text-3xl font-black text-primary">2.</span>
-              <p className="text-base font-bold leading-relaxed">Write Pitch why you should be sponsored</p>
+              <p className="text-base font-bold leading-relaxed">Explain why your project should be sponsored</p>
             </li>
             <li className="p-5">
               <span className="mb-3 block text-3xl font-black text-primary">3.</span>
@@ -523,7 +523,7 @@ export function BodyMarket() {
 
         {loading ? (
           <div className="flex min-h-52 items-center justify-center border-2 border-foreground bg-secondary">
-            <LoaderCircle aria-hidden="true" className="size-6 animate-spin" /><span className="sr-only">Loading bodies</span>
+            <LoaderCircle aria-hidden="true" className="size-6 animate-spin" /><span className="sr-only">Loading projects</span>
           </div>
         ) : loadError ? (
           <div className="border-2 border-foreground bg-secondary p-8 text-center">
@@ -533,8 +533,8 @@ export function BodyMarket() {
         ) : listings.length === 0 ? (
           <div className="grid min-h-52 place-items-center border-2 border-dashed border-foreground bg-secondary p-8 text-center">
             <div>
-              <p className="text-2xl font-black tracking-tight">No bodies yet.</p>
-              <button className="mt-2 font-bold underline decoration-2 underline-offset-4" onClick={startListing}>Put yours first.</button>
+              <p className="text-2xl font-black tracking-tight">No projects yet.</p>
+              <button className="mt-2 font-bold underline decoration-2 underline-offset-4" onClick={startListing}>Submit yours first.</button>
             </div>
           </div>
         ) : (
@@ -543,11 +543,11 @@ export function BodyMarket() {
               <article key={listing.id} className="grid gap-5 py-5 sm:grid-cols-[112px_1fr_auto] sm:items-center">
                 <div className="aspect-[4/3] overflow-hidden border-2 border-foreground bg-secondary sm:aspect-square">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={listing.imageUrl} alt="Body available for a sponsor sticker" width={224} height={224} loading="lazy" className="size-full object-cover" />
+                  <img src={listing.imageUrl} alt="Ad space available for sponsorship" width={224} height={224} loading="lazy" className="size-full object-cover" />
                 </div>
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className="font-black">Body #{listing.id}</span>
+                    <span className="font-black">Project #{listing.id}</span>
                     <span className="border border-foreground px-2 py-0.5 text-xs font-black uppercase tracking-wide">Open for sponsors</span>
                   </div>
                   <p className="max-w-2xl text-base leading-relaxed text-foreground/75">{listing.description}</p>
@@ -594,7 +594,7 @@ export function BodyMarket() {
                       </AlertDialogTrigger>
                       <AlertDialogContent className="rounded-none border-2 border-foreground shadow-[8px_8px_0_var(--accent)]">
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Body #{listing.id}?</AlertDialogTitle>
+                          <AlertDialogTitle>Delete Project #{listing.id}?</AlertDialogTitle>
                           <AlertDialogDescription>
                             This permanently removes the listing and its uploaded photo.
                           </AlertDialogDescription>
@@ -621,7 +621,7 @@ export function BodyMarket() {
       <Dialog open={Boolean(sellerContact)} onOpenChange={(open) => { if (!open) setSellerContact(null); }}>
         <DialogContent className="rounded-none border-2 border-foreground shadow-[8px_8px_0_var(--accent)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-3xl font-black tracking-[-0.04em]">Contact Body #{sellerContact?.listingId}</DialogTitle>
+            <DialogTitle className="text-3xl font-black tracking-[-0.04em]">Contact Project #{sellerContact?.listingId}</DialogTitle>
             <DialogDescription className="text-base text-foreground/70">
               Work out the ad details directly with the seller.
             </DialogDescription>

@@ -11,14 +11,14 @@ export async function POST(
   const { id } = await context.params;
   const listingId = Number(id);
   if (!Number.isSafeInteger(listingId) || listingId < 1) {
-    return Response.json({ error: "That body does not exist." }, { status: 400 });
+    return Response.json({ error: "That project does not exist." }, { status: 400 });
   }
 
   try {
     const rows = await supabaseJson<Array<{ contact: string | null }>>(
       `/rest/v1/listings?id=eq.${listingId}&select=contact&limit=1`,
     );
-    if (!rows.length) return Response.json({ error: "That body does not exist." }, { status: 404 });
+    if (!rows.length) return Response.json({ error: "That project does not exist." }, { status: 404 });
     if (!rows[0].contact) {
       return Response.json({ error: "This seller has not added contact details yet." }, { status: 409 });
     }

@@ -11,7 +11,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   const { id } = await context.params;
   const listingId = Number(id);
   if (!Number.isSafeInteger(listingId) || listingId < 1) {
-    return Response.json({ error: "That body does not exist." }, { status: 400 });
+    return Response.json({ error: "That project does not exist." }, { status: 400 });
   }
 
   try {
@@ -19,7 +19,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       `/rest/v1/listings?id=eq.${listingId}&select=image_key`,
       { method: "DELETE", headers: { prefer: "return=representation" } },
     );
-    if (!deleted.length) return Response.json({ error: "That body does not exist." }, { status: 404 });
+    if (!deleted.length) return Response.json({ error: "That project does not exist." }, { status: 404 });
 
     if (env.BUCKET) await env.BUCKET.delete(deleted[0].image_key).catch(() => undefined);
     return Response.json({ deleted: true });

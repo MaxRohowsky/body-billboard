@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   try {
     const { bucket } = bindings();
     const user = await getSession(request);
-    if (!user) return Response.json({ error: "Sign in with Google to list your body." }, { status: 401 });
+    if (!user) return Response.json({ error: "Sign in with Google to submit your project." }, { status: 401 });
     const form = await request.formData();
     const description = String(form.get("description") ?? "").trim();
     const contact = String(form.get("contact") ?? "").trim();
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "Add contact details between 1 and 200 characters." }, { status: 400 });
     }
     if (!(photo instanceof File)) {
-      return Response.json({ error: "Choose a body photo." }, { status: 400 });
+      return Response.json({ error: "Choose a photo showing the ad space." }, { status: 400 });
     }
 
     const extension = ALLOWED_IMAGE_TYPES.get(photo.type);
