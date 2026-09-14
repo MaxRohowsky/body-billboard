@@ -1,11 +1,10 @@
-import { env } from "cloudflare:workers";
 import { getSession } from "@/lib/session";
+import { supabaseJson } from "@/lib/supabase";
 
 export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!env.DB) return Response.json({ error: "The marketplace is not available yet." }, { status: 503 });
   const user = await getSession(_request);
   if (!user) return Response.json({ error: "Sign in with Google to claim a body." }, { status: 401 });
 
@@ -16,19 +15,22 @@ export async function POST(
   }
 
   try {
-    const result = await env.DB.prepare(
-      "UPDATE listings SET claimed = 1, claimed_by_sub = ? WHERE id = ? AND claimed = 0",
-    )
-      .bind(user.sub, listingId)
-      .run();
+    const updated = await supabaseJson<Array<{ id: number }>>(
+      `/rest/v1/listings?id=eq.${listingId}&claimed=is.false&select=id`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json", prefer: "return=representation" },
+        body: JSON.stringify({ claimed: true, claimed_by_sub: user.sub }),
+      },
+    );
 
-    if (!result.meta.changes) {
-      const existing = await env.DB.prepare("SELECT claimed FROM listings WHERE id = ?")
-        .bind(listingId)
-        .first<{ claimed: number }>();
+    if (!updated.length) {
+      const existing = await supabaseJson<Array<{ claimed: boolean }>>(
+        `/rest/v1/listings?id=eq.${listingId}&select=claimed&limit=1`,
+      );
       return Response.json(
-        { error: existing ? "That body was already claimed." : "That body does not exist." },
-        { status: existing ? 409 : 404 },
+        { error: existing.length ? "That body was already claimed." : "That body does not exist." },
+        { status: existing.length ? 409 : 404 },
       );
     }
     return Response.json({ claimed: true });

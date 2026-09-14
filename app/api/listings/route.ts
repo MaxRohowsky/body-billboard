@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getSession } from "@/lib/session";
+import { supabaseJson } from "@/lib/supabase";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Map([
@@ -9,8 +10,8 @@ const ALLOWED_IMAGE_TYPES = new Map([
 ]);
 
 function bindings() {
-  if (!env.DB || !env.BUCKET) throw new Error("The marketplace storage is not available yet.");
-  return { db: env.DB, bucket: env.BUCKET };
+  if (!env.BUCKET) throw new Error("The marketplace storage is not available yet.");
+  return { bucket: env.BUCKET };
 }
 
 function errorMessage(error: unknown) {
@@ -20,20 +21,18 @@ function errorMessage(error: unknown) {
 
 export async function GET() {
   try {
-    const { db } = bindings();
-    const result = await db
-      .prepare(
-        `SELECT id, description, image_key AS imageKey, claimed, created_at AS createdAt
-         FROM listings
-         ORDER BY created_at DESC, id DESC
-         LIMIT 50`,
-      )
-      .all<{ id: number; description: string; imageKey: string; claimed: number; createdAt: string }>();
+    bindings();
+    const rows = await supabaseJson<
+      Array<{ id: number; description: string; image_key: string; claimed: boolean; created_at: string }>
+    >("/rest/v1/listings?select=id,description,image_key,claimed,created_at&order=created_at.desc,id.desc&limit=50");
 
     return Response.json({
-      listings: result.results.map(({ imageKey, ...listing }) => ({
-        ...listing,
-        imageUrl: `/api/images/${encodeURIComponent(imageKey)}`,
+      listings: rows.map((row) => ({
+        id: row.id,
+        description: row.description,
+        claimed: row.claimed ? 1 : 0,
+        createdAt: row.created_at,
+        imageUrl: `/api/images/${encodeURIComponent(row.image_key)}`,
       })),
     });
   } catch (error) {
@@ -46,7 +45,7 @@ export async function POST(request: Request) {
   let uploadedKey = "";
 
   try {
-    const { db, bucket } = bindings();
+    const { bucket } = bindings();
     const user = await getSession(request);
     if (!user) return Response.json({ error: "Sign in with Google to list your body." }, { status: 401 });
     const form = await request.formData();
@@ -72,18 +71,31 @@ export async function POST(request: Request) {
       customMetadata: { uploadedFor: "listing" },
     });
 
-    const result = await db
-      .prepare(
-        `INSERT INTO listings (description, image_key, image_type, seller_sub)
-         VALUES (?, ?, ?, ?)
-         RETURNING id, description, claimed, created_at AS createdAt`,
-      )
-      .bind(description, uploadedKey, photo.type, user.sub)
-      .first<{ id: number; description: string; claimed: number; createdAt: string }>();
+    const rows = await supabaseJson<
+      Array<{ id: number; description: string; claimed: boolean; created_at: string }>
+    >("/rest/v1/listings?select=id,description,claimed,created_at", {
+      method: "POST",
+      headers: { "content-type": "application/json", prefer: "return=representation" },
+      body: JSON.stringify({
+        description,
+        image_key: uploadedKey,
+        image_type: photo.type,
+        seller_sub: user.sub,
+      }),
+    });
 
+    const result = rows[0];
     if (!result) throw new Error("The listing could not be saved.");
     return Response.json(
-      { listing: { ...result, imageUrl: `/api/images/${encodeURIComponent(uploadedKey)}` } },
+      {
+        listing: {
+          id: result.id,
+          description: result.description,
+          claimed: result.claimed ? 1 : 0,
+          createdAt: result.created_at,
+          imageUrl: `/api/images/${encodeURIComponent(uploadedKey)}`,
+        },
+      },
       { status: 201 },
     );
   } catch (error) {

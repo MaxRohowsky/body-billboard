@@ -7,6 +7,7 @@ export type SessionUser = {
   sub: string;
   email: string;
   name: string | null;
+  isAdmin?: boolean;
 };
 
 function readCookie(request: Request, name: string) {

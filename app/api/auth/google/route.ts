@@ -6,6 +6,7 @@ import {
   sessionCookie,
   sessionExpiry,
 } from "@/lib/session";
+import { isAdminEmail } from "@/lib/admin";
 
 export async function POST(request: Request) {
   if (!env.DB || !env.GOOGLE_CLIENT_ID) {
@@ -33,7 +34,14 @@ export async function POST(request: Request) {
     ]);
 
     return Response.json(
-      { user: { sub: googleUser.sub, email: googleUser.email, name: googleUser.name } },
+      {
+        user: {
+          sub: googleUser.sub,
+          email: googleUser.email,
+          name: googleUser.name,
+          isAdmin: isAdminEmail(googleUser.email),
+        },
+      },
       { headers: { "set-cookie": sessionCookie(token, request), "cache-control": "no-store" } },
     );
   } catch (error) {

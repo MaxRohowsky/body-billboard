@@ -1,9 +1,11 @@
 import { env } from "cloudflare:workers";
 import { clearSessionCookie, currentSessionId, getSession } from "@/lib/session";
+import { isAdminEmail } from "@/lib/admin";
 
 export async function GET(request: Request) {
+  const user = await getSession(request);
   return Response.json(
-    { user: await getSession(request) },
+    { user: user ? { ...user, isAdmin: isAdminEmail(user.email) } : null },
     { headers: { "cache-control": "no-store" } },
   );
 }

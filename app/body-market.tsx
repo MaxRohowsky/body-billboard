@@ -1,10 +1,21 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, Check, ImagePlus, LoaderCircle, LogIn, LogOut, Sparkles, Tag } from "lucide-react";
+import { ArrowDown, Check, ImagePlus, LoaderCircle, LogIn, LogOut, Sparkles, Tag, Trash2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import type { SessionUser } from "@/lib/session";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogClose,
@@ -56,6 +67,7 @@ export function BodyMarket() {
   const [sellOpen, setSellOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [description, setDescription] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -270,6 +282,21 @@ export function BodyMarket() {
     }
   }
 
+  async function deleteListing(id: number) {
+    setDeletingId(id);
+    try {
+      const response = await fetch(`/api/listings/${id}`, { method: "DELETE" });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not delete this listing.");
+      setListings((current) => current.filter((listing) => listing.id !== id));
+      toast.success("Listing deleted.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete this listing.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <Toaster position="bottom-center" richColors closeButton />
@@ -427,21 +454,55 @@ export function BodyMarket() {
                   </div>
                   <p className="max-w-2xl text-base leading-relaxed text-foreground/75">{listing.description}</p>
                 </div>
-                <Button
-                  type="button"
-                  disabled={Boolean(listing.claimed) || claimingId === listing.id}
-                  onClick={() => {
-                    if (!userRef.current) {
-                      setAuthOpen(true);
-                      return;
-                    }
-                    void claimBody(listing.id);
-                  }}
-                  className="h-12 rounded-none border-2 border-foreground px-6 font-black sm:min-w-40"
-                >
-                  {claimingId === listing.id ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : listing.claimed ? <Check aria-hidden="true" /> : null}
-                  {listing.claimed ? "Already claimed" : "Buy body — free"}
-                </Button>
+                <div className="flex flex-col gap-2 sm:items-stretch">
+                  <Button
+                    type="button"
+                    disabled={Boolean(listing.claimed) || claimingId === listing.id}
+                    onClick={() => {
+                      if (!userRef.current) {
+                        setAuthOpen(true);
+                        return;
+                      }
+                      void claimBody(listing.id);
+                    }}
+                    className="h-12 rounded-none border-2 border-foreground px-6 font-black sm:min-w-40"
+                  >
+                    {claimingId === listing.id ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : listing.claimed ? <Check aria-hidden="true" /> : null}
+                    {listing.claimed ? "Already claimed" : "Buy body — free"}
+                  </Button>
+                  {user?.isAdmin ? (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          disabled={deletingId === listing.id}
+                          className="h-10 rounded-none border-2 border-foreground font-black"
+                        >
+                          {deletingId === listing.id ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : <Trash2 aria-hidden="true" />}
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="rounded-none border-2 border-foreground shadow-[8px_8px_0_var(--accent)]">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Body #{listing.id}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This permanently removes the listing and its uploaded photo.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="rounded-none">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="rounded-none bg-destructive text-destructive-foreground"
+                            onClick={() => void deleteListing(listing.id)}
+                          >
+                            Delete permanently
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  ) : null}
+                </div>
               </article>
             ))}
           </div>
