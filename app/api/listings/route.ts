@@ -19,20 +19,38 @@ function errorMessage(error: unknown) {
   return message.includes("no such table") ? "The listings database is not ready yet." : message;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     bindings();
+    const user = await getSession(request);
     const rows = await supabaseJson<
       Array<{ id: number; description: string; image_key: string; created_at: string }>
     >("/rest/v1/listings?select=id,description,image_key,created_at&order=created_at.desc,id.desc&limit=50");
 
+    const listingIds = rows.map((row) => row.id);
+    const votes = listingIds.length
+      ? await supabaseJson<Array<{ listing_id: number; voter_sub: string }>>(
+          `/rest/v1/listing_votes?select=listing_id,voter_sub&listing_id=in.(${listingIds.join(",")})`,
+        )
+      : [];
+    const voteCounts = new Map<number, number>();
+    const viewerVotes = new Set<number>();
+    for (const vote of votes) {
+      voteCounts.set(vote.listing_id, (voteCounts.get(vote.listing_id) ?? 0) + 1);
+      if (user && vote.voter_sub === user.sub) viewerVotes.add(vote.listing_id);
+    }
+
     return Response.json({
-      listings: rows.map((row) => ({
-        id: row.id,
-        description: row.description,
-        createdAt: row.created_at,
-        imageUrl: `/api/images/${encodeURIComponent(row.image_key)}`,
-      })),
+      listings: rows
+        .map((row) => ({
+          id: row.id,
+          description: row.description,
+          createdAt: row.created_at,
+          imageUrl: `/api/images/${encodeURIComponent(row.image_key)}`,
+          voteCount: voteCounts.get(row.id) ?? 0,
+          hasUpvoted: viewerVotes.has(row.id),
+        }))
+        .sort((a, b) => b.voteCount - a.voteCount || Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id - a.id),
     });
   } catch (error) {
     console.error("listing read failed", error);
@@ -97,6 +115,8 @@ export async function POST(request: Request) {
           description: result.description,
           createdAt: result.created_at,
           imageUrl: `/api/images/${encodeURIComponent(uploadedKey)}`,
+          voteCount: 0,
+          hasUpvoted: false,
         },
       },
       { status: 201 },

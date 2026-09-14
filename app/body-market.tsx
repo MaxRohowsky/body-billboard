@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, ExternalLink, ImagePlus, LoaderCircle, LogIn, LogOut, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink, ImagePlus, LoaderCircle, LogIn, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import type { SessionUser } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ type Listing = {
   description: string;
   imageUrl: string;
   createdAt: string;
+  voteCount: number;
+  hasUpvoted: boolean;
 };
 
 type SellerContact = {
@@ -60,6 +62,12 @@ declare global {
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function sortListings(listings: Listing[]) {
+  return [...listings].sort(
+    (a, b) => b.voteCount - a.voteCount || Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id - a.id,
+  );
+}
 
 function contactHref(contact: string) {
   const value = contact.trim();
@@ -93,6 +101,7 @@ export function BodyMarket() {
   const [contactingId, setContactingId] = useState<number | null>(null);
   const [sellerContact, setSellerContact] = useState<SellerContact | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [votingId, setVotingId] = useState<number | null>(null);
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -142,8 +151,9 @@ export function BodyMarket() {
   const handleSignedIn = useCallback((signedInUser: SessionUser) => {
     setUser(signedInUser);
     setAuthOpen(false);
+    void loadListings();
     toast.success("Signed in with Google.");
-  }, []);
+  }, [loadListings]);
 
   const startListing = useCallback(() => {
     if (userRef.current) setSellOpen(true);
@@ -153,7 +163,38 @@ export function BodyMarket() {
   async function signOut() {
     await fetch("/api/auth/me", { method: "DELETE" });
     setUser(null);
+    setListings((current) => current.map((listing) => ({ ...listing, hasUpvoted: false })));
     toast.success("Signed out.");
+  }
+
+  async function toggleUpvote(id: number) {
+    if (!userRef.current) {
+      setAuthOpen(true);
+      return;
+    }
+
+    setVotingId(id);
+    try {
+      const response = await fetch(`/api/listings/${id}/vote`, { method: "POST" });
+      const payload = (await response.json()) as { upvoted?: boolean; voteCount?: number; error?: string };
+      if (response.status === 401) {
+        setUser(null);
+        setAuthOpen(true);
+      }
+      if (!response.ok || typeof payload.upvoted !== "boolean" || typeof payload.voteCount !== "number") {
+        throw new Error(payload.error || "Could not update this upvote.");
+      }
+
+      setListings((current) => sortListings(current.map((listing) => (
+        listing.id === id
+          ? { ...listing, hasUpvoted: payload.upvoted!, voteCount: payload.voteCount! }
+          : listing
+      ))));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update this upvote.");
+    } finally {
+      setVotingId(null);
+    }
   }
 
   const contactSeller = useCallback(async (id: number) => {
@@ -349,7 +390,7 @@ export function BodyMarket() {
           <DialogHeader>
             <DialogTitle className="text-3xl font-black tracking-[-0.04em]">Sign in first</DialogTitle>
             <DialogDescription className="text-base text-foreground/70">
-              A Google account is required to list a body or contact a seller.
+              A Google account is required to list, sponsor, or upvote a body.
             </DialogDescription>
           </DialogHeader>
           <div className="pt-2"><GoogleSignIn onSignedIn={handleSignedIn} /></div>
@@ -512,6 +553,17 @@ export function BodyMarket() {
                   <p className="max-w-2xl text-base leading-relaxed text-foreground/75">{listing.description}</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:items-stretch">
+                  <Button
+                    type="button"
+                    variant={listing.hasUpvoted ? "default" : "outline"}
+                    disabled={votingId === listing.id}
+                    aria-pressed={listing.hasUpvoted}
+                    onClick={() => void toggleUpvote(listing.id)}
+                    className="h-11 rounded-none border-2 border-foreground px-5 font-black"
+                  >
+                    {votingId === listing.id ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : <ArrowUp aria-hidden="true" />}
+                    Upvote {listing.voteCount}
+                  </Button>
                   <Button
                     type="button"
                     disabled={contactingId === listing.id}
